@@ -5,16 +5,14 @@ from bs4 import BeautifulSoup
 import time
 from dotenv import load_dotenv
 
-# Load environment variables
+# تحميل متغيرات البيئة
 load_dotenv()
 
-# Get accounts from environment variable
-# Format expected: "user1:pass1,user2:pass2"
+# الحصول على الحسابات من متغيرات البيئة
 ACCOUNTS_RAW = os.environ.get('PA_ACCOUNTS')
 
 if not ACCOUNTS_RAW:
-    print("❌ Error: PA_ACCOUNTS environment variable not found.")
-    print("   Please set PA_ACCOUNTS in GitHub Secrets as 'user1:pass1,user2:pass2'")
+    print("❌ خطأ: لم يتم العثور على متغير PA_ACCOUNTS.")
     sys.exit(1)
 
 LOGIN_URL = "https://www.pythonanywhere.com/login/"
@@ -25,22 +23,30 @@ def send_telegram_report(results):
     
     total = len(results)
     success_count = sum(1 for r in results if r['status'] == 'Success')
-    status_icon = "✅" if success_count == total else "⚠️"
     
-    # تنسيق التقرير بـ HTML مزخرف
-    report = f"<b>{status_icon} ᴛᴇᴘʀᴇᴇʀ ᴀʟ-ᴛᴀᴊᴅᴇᴇᴅ ᴀʟ-ᴀᴀʟᴇᴇ</b>\n"
-    report += "━━━━━━━━━━━━━━━━━━━━\n"
-    report += f"<b>📊 ʜᴀʟᴀᴛ ᴀʟ-ᴛᴀᴊᴅᴇᴇᴅ:</b> {'<b>ɴᴀᴊᴀʜ ᴛᴀᴀᴍ</b>' if success_count == total else '<b>ꜰᴀsʜᴀʟ ᴊᴜᴢ'ᴇᴇ</b>'}\n"
-    report += f"<b>📈 ᴀʟ-ɴᴀᴛᴀᴀᴊ:</b> <code>{success_count}/{total}</code>\n"
-    report += f"<b>⏰ ᴀʟ-ᴛᴀᴡᴋᴇᴇᴛ:</b> <code>{time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime())}</code>\n\n"
+    # تحديد أيقونة الحالة العامة
+    if success_count == total:
+        status_icon, status_text = "✅", "نجاح تام"
+    elif success_count > 0:
+        status_icon, status_text = "⚠️", "نجاح جزئي"
+    else:
+        status_icon, status_text = "❌", "فشل التجديد"
     
-    report += "<b>📝 ᴛᴀꜰᴀᴀsᴇᴇʟ ᴀʟ-ʜɪsᴀᴀʙᴀᴀᴛ:</b>\n"
+    # بناء التقرير بتنسيق راقٍ ومنظم
+    report = f"{status_icon} تقرير التجديد التلقائي لـ PythonAnywhere\n"
+    report += "━━━━━━━━━━━━━━━━━━━━\n\n"
+    
+    report += f"📊 ملخص الحالة: {status_text}\n"
+    report += f"📈 الإحصائيات: {success_count} من {total}\n"
+    report += f"⏰ وقت التنفيذ: {time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime())}\n\n"
+    
+    report += "📋 تفاصيل الحسابات:\n"
     for r in results:
-        icon = "✅" if r['status'] == 'Success' else "❌"
-        report += f"• <code>{r['user']}</code>: {icon} {r['msg']}\n"
+        icon = "🟢" if r['status'] == 'Success' else "🔴"
+        report += f"• {r['user']} ⮕ {icon} {r['msg']}\n"
         
     report += "\n━━━━━━━━━━━━━━━━━━━━\n"
-    report += "🚀 <i>ʙᴏᴛ ᴍᴀɴᴀɢᴇᴅ ʙʏ ᴍᴀɪ</i>"
+    report += "🚀 تمت الإدارة بواسطة ماي"
         
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     payload = {
@@ -49,9 +55,9 @@ def send_telegram_report(results):
         'parse_mode': 'HTML'
     }
     try:
-        requests.post(url, data=payload, timeout=10)
+        requests.post(url, data=payload, timeout=15)
     except Exception as e:
-        print(f"❌ Failed to send Telegram report: {e}")
+        print(f"❌ فشل إرسال تقرير تيليجرام: {e}")
 
 def renew_account(username, password):
     dashboard_url = f"https://www.pythonanywhere.com/user/{username}/webapps/"
@@ -61,20 +67,14 @@ def renew_account(username, password):
     })
     
     try:
-        print(f"\n--- 🔐 Processing Account: {username} ---")
-        
-        # 1. Get login page
-        login_page = session.get(LOGIN_URL, timeout=10)
-        login_page.raise_for_status()
-        
+        # 1. تسجيل الدخول
+        login_page = session.get(LOGIN_URL, timeout=15)
         soup = BeautifulSoup(login_page.content, 'html.parser')
         csrf_token = soup.find('input', {'name': 'csrfmiddlewaretoken'})
         
         if not csrf_token:
-            print(f"❌ [{username}] Could not find CSRF token on login page")
-            return False
+            return "Failed", "خطأ في صفحة الدخول"
         
-        # 2. Submit login
         payload = {
             'csrfmiddlewaretoken': csrf_token['value'],
             'auth-username': username,
@@ -82,75 +82,54 @@ def renew_account(username, password):
             'login_view-current_step': 'auth'
         }
         
-        response = session.post(
-            LOGIN_URL, 
-            data=payload, 
-            headers={'Referer': LOGIN_URL},
-            timeout=10,
-            allow_redirects=True
-        )
+        response = session.post(LOGIN_URL, data=payload, headers={'Referer': LOGIN_URL}, timeout=15, allow_redirects=True)
         
         if "Log out" not in response.text and "logout" not in response.text.lower():
-            print(f"❌ [{username}] Login failed")
-            return False
+            return "Failed", "فشل في تسجيل الدخول"
         
-        print(f"✅ [{username}] Login successful")
-        
-        # 3. Access dashboard
-        time.sleep(1)
-        dashboard = session.get(dashboard_url, timeout=10)
-        dashboard.raise_for_status()
+        # 2. فحص لوحة التحكم
+        time.sleep(2)
+        dashboard = session.get(dashboard_url, timeout=15)
         soup = BeautifulSoup(dashboard.content, 'html.parser')
         
-        # 4. Find extend button
         forms = soup.find_all('form', action=True)
         extend_action = next((f.get('action') for f in forms if "/extend" in f.get('action', '').lower()), None)
         
         if not extend_action:
-            print(f"ℹ️  [{username}] No extend button found (Not needed yet).")
-            return True
+            return "Success", "مجدد مسبقاً"
         
-        # 5. Get CSRF token and submit extend request
+        # 3. الضغط على زر التمديد
         dashboard_csrf = soup.find('input', {'name': 'csrfmiddlewaretoken'})
-        extend_url = f"https://www.pythonanywhere.com{extend_action}"
+                extend_url = f"https://www.pythonanywhere.com{extend_action}"
         
         result = session.post(
             extend_url,
             data={'csrfmiddlewaretoken': dashboard_csrf['value']},
             headers={'Referer': dashboard_url},
-            timeout=10
+            timeout=15
         )
         
         if result.status_code == 200 and "webapps" in result.url.lower():
-            print(f"✨ [{username}] Web app extended successfully!")
-            return True
+            return "Success", "تم التجديد بنجاح"
         else:
-            print(f"⚠️  [{username}] Extension might have failed. Status: {result.status_code}")
-            return False
+            return "Failed", f"خطأ برقم {result.status_code}"
             
     except Exception as e:
-        print(f"❌ [{username}] Unexpected error: {e}")
-        return False
+        return "Failed", "خطأ في الاتصال"
 
 if __name__ == "__main__":
-    # Parse accounts
     account_list = [acc.split(':') for acc in ACCOUNTS_RAW.split(',') if ':' in acc]
+    final_results = []
     
-    total = len(account_list)
-    success_count = 0
-    
-    print(f"🚀 Starting Auto-Renew for {total} accounts...")
+    print(f"🚀 بدء عملية التجديد التلقائي لـ {len(account_list)} حسابات...")
     
     for user, pw in account_list:
-        if renew_account(user.strip(), pw.strip()):
-            success_count += 1
-
-    send_telegram_report(results)
+        u, p = user.strip(), pw.strip()
+        status, msg = renew_account(u, p)
+        final_results.append({'user': u, 'status': status, 'msg': msg})
+        print(f"[{u}]: {status} - {msg}")
             
-    print("\n" + "="*30)
-    print(f"📊 FINAL SUMMARY:")
-    print(f"✅ Success: {success_count}/{total}")
-    print(f"❌ Failed: {total - success_count}/{total}")
-    print("="*30)
+    # إرسال التقرير النهائي الأنيق
+    send_telegram_report(final_results)
     
-    sys.exit(0 if success_count == total else 1)
+    sys.exit(0 if all(r['status'] == 'Success' for r in final_results) else 1)
