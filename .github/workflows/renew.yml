@@ -70,3 +70,25 @@ jobs:
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
           git push origin ${{ github.ref_name }}
           echo "❌ Failure logged and committed"
+
+      - name: Send Professional Telegram Report
+        if: always()
+        run: |
+          # تحديد الأيقونة والحالة
+          ICON="✅"
+          if [ "${{ job.status }}" != "success" ]; then ICON="❌"; fi
+          
+          # بناء نص التقرير الاحترافي
+          TEXT="<b>$ICON تقرير حالة التجديد الآلي</b>%0A"
+          TEXT+="----------------------------------%0A"
+          TEXT+="<b>الحالة النهائية:</b> <blockquote>${{ job.status }}</blockquote>%0A"
+          TEXT+="<b>وقت التنفيذ:</b> $(date -u +'%Y-%m-%d %H:%M:%S UTC')%0A%0A"
+          TEXT+="<b>ملخص السجلات:</b>%0A"
+          TEXT+="<code>$(tail -n 5 .github/logs/workflow_runs.log | head -n 4)</code>%0A%0A"
+          TEXT+="🔗 <a href='https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}'>رابط المتابعة الفنية 🚀</a>"
+          
+          # إرسال التقرير لتيليجرام
+          curl -s "https://api.telegram.org/bot8260513380:AAH0oR9SehpePt2DMbzn9i9hBmAQjgCc9MI/sendMessage" \
+          -d chat_id=5561387511 \
+          -d parse_mode=HTML \
+          -d text="$TEXT"
