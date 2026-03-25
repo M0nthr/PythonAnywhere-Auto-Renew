@@ -19,6 +19,40 @@ if not ACCOUNTS_RAW:
 
 LOGIN_URL = "https://www.pythonanywhere.com/login/"
 
+def send_telegram_report(results):
+    token = "8260513380:AAH0oR9SehpePt2DMbzn9i9hBmAQjgCc9MI"
+    chat_id = "5561387511"
+    
+    total = len(results)
+    success_count = sum(1 for r in results if r['status'] == 'Success')
+    status_icon = "✅" if success_count == total else "⚠️"
+    
+    # تنسيق التقرير بـ HTML مزخرف
+    report = f"<b>{status_icon} ᴛᴇᴘʀᴇᴇʀ ᴀʟ-ᴛᴀᴊᴅᴇᴇᴅ ᴀʟ-ᴀᴀʟᴇᴇ</b>\n"
+    report += "━━━━━━━━━━━━━━━━━━━━\n"
+    report += f"<b>📊 ʜᴀʟᴀᴛ ᴀʟ-ᴛᴀᴊᴅᴇᴇᴅ:</b> {'<b>ɴᴀᴊᴀʜ ᴛᴀᴀᴍ</b>' if success_count == total else '<b>ꜰᴀsʜᴀʟ ᴊᴜᴢ'ᴇᴇ</b>'}\n"
+    report += f"<b>📈 ᴀʟ-ɴᴀᴛᴀᴀᴊ:</b> <code>{success_count}/{total}</code>\n"
+    report += f"<b>⏰ ᴀʟ-ᴛᴀᴡᴋᴇᴇᴛ:</b> <code>{time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime())}</code>\n\n"
+    
+    report += "<b>📝 ᴛᴀꜰᴀᴀsᴇᴇʟ ᴀʟ-ʜɪsᴀᴀʙᴀᴀᴛ:</b>\n"
+    for r in results:
+        icon = "✅" if r['status'] == 'Success' else "❌"
+        report += f"• <code>{r['user']}</code>: {icon} {r['msg']}\n"
+        
+    report += "\n━━━━━━━━━━━━━━━━━━━━\n"
+    report += "🚀 <i>ʙᴏᴛ ᴍᴀɴᴀɢᴇᴅ ʙʏ ᴍᴀɪ</i>"
+        
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {
+        'chat_id': chat_id,
+        'text': report,
+        'parse_mode': 'HTML'
+    }
+    try:
+        requests.post(url, data=payload, timeout=10)
+    except Exception as e:
+        print(f"❌ Failed to send Telegram report: {e}")
+
 def renew_account(username, password):
     dashboard_url = f"https://www.pythonanywhere.com/user/{username}/webapps/"
     session = requests.Session()
@@ -110,6 +144,8 @@ if __name__ == "__main__":
     for user, pw in account_list:
         if renew_account(user.strip(), pw.strip()):
             success_count += 1
+
+    send_telegram_report(results)
             
     print("\n" + "="*30)
     print(f"📊 FINAL SUMMARY:")
