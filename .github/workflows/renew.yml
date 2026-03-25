@@ -84,7 +84,7 @@ jobs:
           TEXT+="<b>الحالة النهائية:</b> <blockquote>${{ job.status }}</blockquote>%0A"
           TEXT+="<b>وقت التنفيذ:</b> $(date -u +'%Y-%m-%d %H:%M:%S UTC')%0A%0A"
           TEXT+="<b>ملخص السجلات:</b>%0A"
-          TEXT+="<code>$(tail -n 20 .github/logs/workflow_runs.log)</code>%0A%0A"
+          TEXT+="<code>$(tail -n 35 .github/logs/workflow_runs.log)</code>%0A%0A"
           TEXT+="🔗 <a href='https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}'>رابط المتابعة الفنية 🚀</a>"
           
           # إرسال التقرير لتيليجرام
