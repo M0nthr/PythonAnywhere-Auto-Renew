@@ -89,7 +89,7 @@ def renew_account(username, password):
         
         if result.status_code == 200 and "webapps" in result.url.lower():
             print(f"✨ [{username}] Web app extended successfully!")
-                        return True
+            return True
         else:
             print(f"⚠️  [{username}] Extension might have failed. Status: {result.status_code}")
             return False
